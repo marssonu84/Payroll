@@ -1,0 +1,23 @@
+name: Build APK
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: unzip -q *.zip -d src
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - run: dotnet run --project src/VighneshPayroll.Tests
+      - run: dotnet workload install maui-android
+      - run: keytool -genkey -keystore $RUNNER_TEMP/p.keystore -alias payroll -keyalg RSA -keysize 2048 -validity 10000 -storepass payroll123 -keypass payroll123 -dname "CN=Payroll"
+      - run: >
+          dotnet publish src/VighneshPayroll.Mobile -f net10.0-android -c Release
+          -p:AndroidPackageFormat=apk -p:AcceptAndroidSDKLicenses=True -p:AndroidKeyStore=true
+          -p:AndroidSigningKeyStore=$RUNNER_TEMP/p.keystore
+          -p:AndroidSigningKeyAlias=payroll
+          -p:AndroidSigningKeyPass=payroll123 -p:AndroidSigningStorePass=payroll123 -o out
+      - uses: actions/upload-artifact@v4
+        with: { name: payroll-apk, path: out/*-Signed.apk }
